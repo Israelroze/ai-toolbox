@@ -1,0 +1,200 @@
+---
+name: tag-document
+description: Tag documents (notes, prompts, configs, skills, research) with a controlled vocabulary scoped to the host project. Maintains TAGS.md, ENTITIES.md, and INDEX.md in a project-root folder with an approval gate for new tags to prevent vocabulary drift. Use when the user wants to tag, index, organize, or retrieve documents by topic. Bootstraps its own storage folder on first use.
+---
+
+# tag-document
+
+Tags arbitrary documents (notes, prompts, configs, Claude Code skills, research) using a **controlled vocabulary** scoped to the current project. Designed to prevent tag drift while letting the vocabulary grow organically through an approval gate.
+
+## When to invoke
+
+- The user asks to tag, label, categorize, or index a document.
+- The user adds a new note / prompt / config / skill / research file to the project and wants it organized.
+- The user asks a retrieval question like "find docs about X" or "what do I have on Y?" — use `INDEX.md` to locate candidates before reading any document in full.
+- The user wants to review, audit, or edit the current tag vocabulary.
+
+Do NOT invoke for one-off questions that don't touch documents, or when the user is clearly working on a non-documentation task.
+
+## Storage layout (per host project)
+
+All state lives in a single folder at the host project root (default name: `tagging/`):
+
+```
+<host-project-root>/
+└── tagging/
+    ├── TAGS.md       # controlled tag vocabulary
+    ├── ENTITIES.md   # controlled entity vocabulary (people, products, models, tools, companies)
+    └── INDEX.md      # one-line-per-doc index of all tagged docs
+```
+
+The folder lives at the project root (NOT under `.claude/`) so the user can review, edit, and version-control it directly.
+
+## Bootstrap (first invocation in a project)
+
+If the tagging folder does not exist:
+
+1. Ask the user: *"I'll create a tagging-system folder at the project root. Default name: `tagging/`. Accept, or supply a different name?"*
+2. Create the folder at the host project root with three template files, using the schemas in the **File templates** section below. All three start empty (vocabulary is built up from real documents, not seeded).
+3. Proceed with the standing procedure.
+
+If the tagging folder exists, skip bootstrap and go straight to the standing procedure.
+
+## Standing procedure (every invocation)
+
+1. **Locate the tagging folder.** Look for `./tagging/` (or its renamed equivalent) at the host project root. If absent, run bootstrap. If present, load `TAGS.md` and `ENTITIES.md`.
+2. **Read the document** to be tagged in full.
+3. **Extract candidate concepts** — topics, techniques, named entities, doc type, status.
+4. **Match each concept to existing vocabulary** using **semantic similarity**, not just string match. Example: a doc about "retrieval augmented generation" matches the existing tag `rag`. A doc mentioning "the Sonnet model" matches the entity `Claude Sonnet 4.6`.
+5. **Flag gaps** — concepts with no good existing tag, or borderline cases between two existing tags.
+6. **Propose new tags/entities** (if any) to the user in a single batch. For each proposal:
+   - Name (lowercase-hyphenated)
+   - Definition
+   - 2-3 example use cases
+   - **Why existing tags don't cover it** (explicit — required to prevent overlap)
+   - **Not for** clause (what this tag does NOT cover, vs the closest existing tag)
+   
+   The user approves, edits, or rejects each. Approved entries get appended to `TAGS.md` / `ENTITIES.md`.
+7. **Write the frontmatter** on the source document using only approved values. Preserve any pre-existing frontmatter fields not managed by this skill (merge, don't clobber).
+8. **Update `INDEX.md`** with the new entry — add a one-line entry under the section matching the doc's status.
+
+## Frontmatter format (applied to every tagged doc)
+
+```yaml
+---
+id: short-stable-slug
+title: Human Readable Title
+date: YYYY-MM-DD
+type: skill | prompt | note | config
+status: draft | active | archived
+tags: [tag-from-vocabulary, another-tag]
+entities: [Claude Code, Anthropic]
+summary: One sentence on what this document is and why it exists.
+---
+```
+
+Rules:
+- `id` — stable handle, survives renames. Lowercase-hyphenated.
+- `tags` and `entities` — may ONLY contain values currently in `TAGS.md` / `ENTITIES.md`. Refuse to tag with unapproved values.
+- `type` and `status` — fixed enums (listed in `TAGS.md`).
+- Target **3-7 tags per doc**. More than ~10 is a sign the tags aren't doing real filtering work.
+- `summary` — one sentence, optimized for skimming the index, not for replacing the doc.
+
+## Tag conventions
+
+- **Lowercase-hyphenated**: `prompt-engineering`, not `Prompt Engineering` or `promptEngineering`.
+- **Singular by default** unless the concept is inherently plural.
+- **Topical tags only**. Named things → `entities`. `type` and `status` have their own fields. Don't pollute tags with these.
+
+## Drift-prevention rules (enforce strictly)
+
+- **Refuse to tag with anything not in `TAGS.md`.** No exceptions. If a concept needs a new tag, propose it through the approval flow first.
+- **Every new tag definition MUST include a "Not for" clause** distinguishing it from the closest existing tag.
+- **Tag renames cascade** — when a tag is renamed or merged, update every doc's frontmatter AND `INDEX.md` in the same operation. Never leave the vocabulary and the indexed docs out of sync.
+- **User edits to `TAGS.md` / `ENTITIES.md` are authoritative.** On each invocation, reload from disk. If the user has manually edited the vocabulary, those edits take precedence over anything in conversation context.
+
+## Retrieval procedure
+
+When the user asks a question that requires finding documents:
+
+1. **Read `INDEX.md` first.** It's a single small file with the metadata of every tagged doc — cheap to load.
+2. **Filter** by tags / entities / type / status to identify candidate documents.
+3. **Read only the candidate documents** in full.
+4. **Answer** using the retrieved content. If the answer needs cross-doc synthesis, read several candidates; otherwise read one.
+
+Do NOT scan the whole project folder when `INDEX.md` exists — that's what the index is for.
+
+## File templates
+
+Use these verbatim when bootstrapping the folder.
+
+### `TAGS.md`
+
+```markdown
+# Tags
+
+Controlled vocabulary for this project. The `tag-document` skill enforces this list — no document is tagged with anything not present here.
+
+## Conventions
+
+- Names: lowercase-hyphenated, singular by default
+- Each tag has: **definition**, **examples it covers**, **not for** (what it does NOT cover, vs the closest existing tag)
+- Add new tags ONLY through the approval flow in the `tag-document` skill
+
+## Enums
+
+### type (in document frontmatter)
+- `skill` — a Claude Code skill or agent definition
+- `prompt` — a reusable prompt or prompt template
+- `note` — free-form notes, research, learnings
+- `config` — settings, hooks, MCP definitions, infra snippets
+
+### status (in document frontmatter)
+- `draft` — work in progress
+- `active` — current, in use
+- `archived` — kept for reference, not in active use
+
+## Tags
+
+<!-- vocabulary will be populated as documents are tagged -->
+<!-- format for each entry:
+### tag-name
+**Definition:** ...
+**Examples it covers:** ...
+**Not for:** ... (use `other-tag` instead)
+-->
+```
+
+### `ENTITIES.md`
+
+```markdown
+# Entities
+
+Named things referenced across documents (models, tools, companies, people, products). Kept separate from topical tags so queries like "all docs about Claude Code" don't need to filter through topical noise.
+
+## Categories
+
+- **models** — LLM models (e.g., Claude Opus 4.7)
+- **tools** — software tools and platforms (e.g., Claude Code, Obsidian)
+- **companies** — organizations (e.g., Anthropic)
+- **people** — individuals
+- **products** — non-tool products and services
+
+## Conventions
+
+- Use the entity's canonical display name (e.g., `Claude Code`, not `claude-code` or `CC`).
+- One entry per canonical name. List aliases under the entry for matching purposes.
+
+## Entities
+
+<!-- entities will be populated as documents are tagged -->
+<!-- format for each entry:
+### Canonical Name
+**Category:** models | tools | companies | people | products
+**Aliases:** alt-name-1, alt-name-2
+**Note:** optional short note
+-->
+```
+
+### `INDEX.md`
+
+```markdown
+# Index
+
+One-line-per-document index of all tagged documents in this project. Regenerated from each doc's frontmatter. Load this file FIRST when answering retrieval questions.
+
+## Active
+
+<!-- format: - [title](path/to/doc.md) — summary [type: X | tags: a, b, c | entities: X, Y] -->
+
+## Draft
+
+## Archived
+```
+
+## What this skill does NOT do
+
+- **Bulk-tagging existing documents.** This skill tags one document per invocation (or a small batch). A separate `bulk-tag` skill handles sweep operations across an entire project.
+- **Visualization.** The frontmatter format is compatible with Obsidian/Foam graph views — point those tools at the project folder if you want a visual graph. This skill does not generate graph files itself.
+- **Cross-project vocabulary sharing.** Each project has its own scoped `TAGS.md` / `ENTITIES.md`. Vocabulary does not leak between projects.
+- **Auto-discovery of new docs.** This skill activates when you ask it to tag something. It doesn't poll the filesystem.
