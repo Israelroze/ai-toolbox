@@ -48,11 +48,13 @@ Created at the host project root, alongside `tagging/`:
 ├── sources/                       # raw source documents (this skill creates on first ingest)
 │   ├── <source-id>.md
 │   └── ...
-└── wiki/                          # owned by this skill
-    ├── log.md                     # append-only chronological log
-    └── summaries/                 # one summary doc per ingested source
-        ├── <source-id>-summary.md
-        └── ...
+└── wiki/                          # this skill owns log.md + summaries/; wiki-query owns answers/
+    ├── log.md                     # append-only chronological log (ingests, queries, etc.)
+    ├── summaries/                 # one summary doc per ingested source — this skill writes here
+    │   ├── <source-id>-summary.md
+    │   └── ...
+    └── answers/                   # filed-back syntheses — wiki-query writes here on user accept
+        └── <answer-slug>.md
 ```
 
 `sources/` and `wiki/` both live at the project root (NOT under `.claude/`) so the user can review, edit, and version-control them directly. Future expansion within `wiki/` (not built yet): `wiki/entities/`, `wiki/concepts/`.

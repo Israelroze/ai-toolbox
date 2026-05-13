@@ -65,7 +65,7 @@ If the tagging folder exists, skip bootstrap and go straight to the standing pro
 id: short-stable-slug
 title: Human Readable Title
 date: YYYY-MM-DD
-type: skill | prompt | note | config | source | summary
+type: skill | prompt | note | config | source | summary | answer
 status: draft | active | archived
 tags: [tag-from-vocabulary, another-tag]
 entities: [Claude Code, Anthropic]
@@ -122,7 +122,8 @@ Controlled vocabulary for this project. The `tag-document` skill enforces this l
 - `note` — free-form notes, research, learnings
 - `config` — settings, hooks, MCP definitions, infra snippets
 - `source` — a raw source document (article, paper, transcript) typically stored under `sources/`; immutable from the LLM's perspective. Optionally carries `source_url:` if originally fetched from the web
-- `summary` — LLM-generated summary of a source (produced by the `wiki-ingest` skill); carries `source:` and `source_path:` fields linking back to the original
+- `summary` — LLM-generated summary of a single source (produced by the `wiki-ingest` skill); carries `source:` and `source_path:` fields linking back to the original
+- `answer` — LLM-generated synthesis filed back from a substantive query (produced by the `wiki-query` skill); typically lives under `wiki/answers/` and carries `question:` (the original question) and `sources:` (plural — list of source/doc IDs the answer was built from)
 
 ### status (in document frontmatter)
 - `draft` — work in progress

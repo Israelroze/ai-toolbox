@@ -11,7 +11,7 @@ The skill assumes the project already has the storage layout created by `tag-doc
 
 ## The system at a glance (what you're querying)
 
-A host project using this knowledge system has two top-level folders:
+A host project using this knowledge system has these top-level folders:
 
 ```
 <host-project-root>/
@@ -19,15 +19,18 @@ A host project using this knowledge system has two top-level folders:
 │   ├── TAGS.md          # controlled tag vocabulary
 │   ├── ENTITIES.md      # controlled entity vocabulary
 │   └── INDEX.md         # one-line-per-doc catalog of EVERY tagged doc in the project
-└── wiki/                # only present if wiki-ingest has been used
-    ├── log.md           # chronological record of operations
-    └── summaries/       # one summary doc per ingested source
+├── sources/             # raw source docs (immutable from LLM's POV) — present once wiki-ingest has saved any
+└── wiki/                # LLM-generated content — present once wiki-ingest or this skill's file-back has run
+    ├── log.md           # chronological record of ingests, queries, and other operations
+    ├── summaries/       # one summary doc per ingested source (type: summary)
+    └── answers/         # filed-back synthesis answers from this skill (type: answer) — present once an answer has been filed
 ```
 
 Key invariants:
-- **`INDEX.md` is the master catalog.** Every tagged document — raw notes, prompts, configs, skills, AND summaries from `wiki-ingest` — has a one-line entry there with its tags, entities, type, status, and a sentence-long summary.
-- **Summaries are first-class.** A summary has `type: summary` and a `source:` / `source_path:` field. Querying surfaces both the source and its summary so you can choose which to read.
+- **`INDEX.md` is the master catalog.** Every tagged document — raw notes, prompts, configs, skills, sources, summaries, AND filed-back answers — has a one-line entry there with its tags, entities, type, status, and a sentence-long summary.
+- **Three derived-content types are first-class:** `source` (raw, immutable), `summary` (one source → one summary, written by `wiki-ingest`), `answer` (many sources → one synthesis, written by this skill's step 7). All are queryable like any other tagged doc.
 - **Vocabulary is closed.** Tags and entities used in `INDEX.md` all exist in `TAGS.md` / `ENTITIES.md`. To map a user's natural-language question onto the index, you must first map it onto the vocabulary.
+- **Every query is logged.** Even if no answer is filed back, `wiki/log.md` records what was asked and what was read. This is the system's memory of how it's been used.
 
 ## When to invoke
 
@@ -93,22 +96,60 @@ Cite every non-trivial claim. The citation IS the value — it lets the user ver
 
 If candidates disagree (one summary says X, another says Y), surface the contradiction explicitly rather than picking one silently. Disagreements are signal.
 
-### 6. Optional: log significant queries
+### 6. Log every query (default: on)
 
-If the query is non-trivial (you read 3+ docs, the answer is novel, the user expressed it as a research question), append to `wiki/log.md` using the format from `wiki-ingest`:
+Append to `wiki/log.md` for **every** retrieval, regardless of triviality. The log is append-only and cheap — leaving it default-on gives the user a complete audit trail of what the agent has fetched from their docs.
 
 ```markdown
-## [2026-05-13] query | <short question>
-Read: [doc-a, doc-b, doc-c]. Answer: <one-line gist>.
+## [YYYY-MM-DD] query | <short question>
+Docs: [doc-a, doc-b, doc-c]. Answer: <one-line gist>.
 ```
 
-Skip the log for casual lookups. Don't pollute the log with every "what's in this index?" question.
+Variants:
+- **Empty results** — still log, prefixed with `(NO MATCHES)`. Empty queries are signal: they reveal vocabulary gaps or missing sources.
+  ```
+  ## [YYYY-MM-DD] query | <question> (NO MATCHES)
+  Closest tags considered: [foo, bar]. Suggested action: ingest or tag a relevant source.
+  ```
+- **Filed-back queries** — if step 7 fires and the user accepts, append `filed: wiki/answers/<slug>.md` to the log entry so the audit trail links to the filed answer.
 
-### 7. Optional: offer to file the answer back into the wiki
+Skip logging only if the user explicitly says "don't log this".
 
-If the synthesis is substantive (comparison, novel connection, deep analysis) and likely to be useful again, offer: *"Want me to file this answer into the wiki as a new doc? It'll be tagged and queryable like anything else."*
+### 7. Offer to file the answer back (when synthesis is substantive)
 
-Filing back is NOT automatic — only on user request. Use the `wiki-ingest` skill's procedure if accepted, with `type: summary` and `source: query-<date>-<slug>` (since the "source" is the conversation, not an external doc). Per Karpathy's pattern, this is how the wiki compounds — your explorations accumulate.
+If the synthesis was real work — 3+ docs read, comparison/synthesis across sources, a novel connection, or a deep analysis — **proactively offer**:
+
+> *"This was a substantive synthesis. File it as `wiki/answers/<slug>.md` so future queries can find it? (yes / no)"*
+
+Filing is opt-in (never automatic) but offered actively, not buried.
+
+**On user accept:**
+
+1. **Create `wiki/answers/`** if it doesn't exist (with a `.gitkeep`).
+2. **Pick a slug** — short, kebab-case, derived from the question. Confirm with user if ambiguous.
+3. **Write `wiki/answers/<slug>.md`** with the synthesis as the body and this frontmatter:
+   ```yaml
+   ---
+   id: answer-<slug>
+   title: <short title for the answer>
+   date: YYYY-MM-DD
+   type: answer
+   status: active
+   tags: [tag-from-vocabulary, ...]
+   entities: [...]
+   question: "the original question (verbatim or paraphrased)"
+   sources: [<source-id-1>, <source-id-2>, ...]   # IDs of docs that informed the answer
+   summary: One sentence describing what this answer covers.
+   ---
+   ```
+   - Use only approved vocabulary for `tags` / `entities` (follow `tag-document`'s rules; propose new tags through its approval flow if needed).
+   - `sources` is a list of `id`s from `INDEX.md` — the docs you actually read to produce the answer. Plural and required (an answer with zero sources shouldn't exist).
+4. **Update `INDEX.md`** with the new entry (or note that a `reindex` is pending if many entries are involved).
+5. **Update the log entry** from step 6 to append `filed: wiki/answers/<slug>.md`.
+
+**On user decline:** still keep the step-6 log entry. The query happened either way.
+
+Per Karpathy's pattern, this is how the wiki compounds — your explorations accumulate as first-class indexed docs, queryable like sources and summaries.
 
 ## Output format conventions
 

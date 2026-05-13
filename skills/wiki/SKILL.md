@@ -15,7 +15,7 @@ Conceptual basis: Karpathy's "LLM Wiki" pattern — see `reference/karpathy-wiki
 
 ## The system at a glance
 
-A project using this system has three folders at its root (created on demand, names confirmable on first use):
+A project using this system has these folders at its root (created on demand, names confirmable on first use):
 
 ```
 <host-project-root>/
@@ -26,12 +26,19 @@ A project using this system has three folders at its root (created on demand, na
 ├── sources/                  # raw source documents (immutable from LLM's POV)
 │   └── <source-id>.md
 └── wiki/                     # LLM-generated content
-    ├── log.md                # chronological log of operations
-    └── summaries/
-        └── <source-id>-summary.md
+    ├── log.md                # chronological log of operations (ingests, queries, etc.)
+    ├── summaries/            # written by wiki-ingest — one summary per source
+    │   └── <source-id>-summary.md
+    └── answers/              # written by wiki-query (on user opt-in) — filed-back syntheses
+        └── <answer-slug>.md
 ```
 
-Everything tagged — sources, notes, prompts, configs, skills, summaries — appears as a row in `tagging/INDEX.md`. The index is the master catalog the agent consults first for any retrieval question.
+Everything tagged — sources, notes, prompts, configs, skills, summaries, **and filed-back answers** — appears as a row in `tagging/INDEX.md`. The index is the master catalog the agent consults first for any retrieval question.
+
+The three derived-content types correspond to three first-class artifacts:
+- `source` — raw, immutable
+- `summary` — one source → one summary (via `wiki-ingest`)
+- `answer` — many docs → one synthesis (via `wiki-query`'s file-back, on user accept)
 
 ## Routing (decision tree)
 
@@ -66,6 +73,7 @@ Invoke when the user wants to set the system up from scratch in a project. Faste
    - `tagging/INDEX.md` — use the template from `tag-document/SKILL.md`
    - `sources/.gitkeep`
    - `wiki/summaries/.gitkeep`
+   - `wiki/answers/.gitkeep` (filed-back syntheses from `wiki-query` go here on user accept)
    - `wiki/log.md` — use the template from `wiki-ingest/SKILL.md`
 4. Append the first log entry to `wiki/log.md`:
    ```
