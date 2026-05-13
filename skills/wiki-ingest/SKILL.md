@@ -37,7 +37,7 @@ This confirmation is fast and prevents wasted work on the wrong source or the wr
 
 ## Storage layout (per host project)
 
-Created at the host project root, parallel to `tagging/`:
+Created at the host project root, alongside `tagging/`:
 
 ```
 <host-project-root>/
@@ -45,6 +45,9 @@ Created at the host project root, parallel to `tagging/`:
 │   ├── TAGS.md
 │   ├── ENTITIES.md
 │   └── INDEX.md
+├── sources/                       # raw source documents (this skill creates on first ingest)
+│   ├── <source-id>.md
+│   └── ...
 └── wiki/                          # owned by this skill
     ├── log.md                     # append-only chronological log
     └── summaries/                 # one summary doc per ingested source
@@ -52,21 +55,32 @@ Created at the host project root, parallel to `tagging/`:
         └── ...
 ```
 
-`wiki/` is at the project root (NOT under `.claude/`) so the user can review, edit, and version-control it directly.
+`sources/` and `wiki/` both live at the project root (NOT under `.claude/`) so the user can review, edit, and version-control them directly. Future expansion within `wiki/` (not built yet): `wiki/entities/`, `wiki/concepts/`.
 
-Future expansion within `wiki/` (not built yet): `wiki/entities/` (per-entity pages), `wiki/concepts/` (per-concept pages).
+### Source storage rules
+
+`sources/` is the canonical home for the raw materials this skill summarizes. Three cases on ingest:
+
+1. **Source is already a file inside the project** (e.g., the user dropped `notes/acme-q3-call.md` into the repo and asks to ingest it). Leave the file where it is. The summary's `source_path` points to its existing path. Do NOT move it to `sources/`.
+2. **Source is pasted text** (no file, the user pasted the article body into chat). Save it to `sources/<source-id>.md` with minimal frontmatter (just `id`, `title`, `date`, `type: source`), then summarize. The summary's `source_path` points to `sources/<source-id>.md`. This makes future retrieval and re-summarization possible.
+3. **Source is a URL** (the user supplied a link and the agent has the fetched text). Default behavior: save the fetched content to `sources/<source-id>.md` (same as case 2) so the system has a stable copy that won't link-rot. Set `source_url` in the saved source's frontmatter so the original URL is preserved. If the user explicitly says "don't save it locally", set `source_path` to the URL itself and skip the save.
+
+Sources in `sources/` are **immutable from the LLM's perspective** — the agent reads them but never edits them (the user may edit). Summaries and other generated artifacts go in `wiki/`, never in `sources/`.
+
+Sources get tagged via the `tag-document` skill just like any other project doc — they appear in `INDEX.md` with `type: source`. This means a query can surface a source and its summary side by side.
 
 ## Bootstrap (first invocation in a project)
 
 If `wiki/` does not exist:
 
-1. Ask the user: *"I'll create a wiki folder at the project root for summaries and log. Default name: `wiki/`. Accept, or supply a different name?"*
-2. Create the folder with:
-   - `wiki/summaries/` (with a `.gitkeep` so it's version-controlled even when empty)
+1. Ask the user: *"I'll create `wiki/` (for summaries + log) and `sources/` (for raw source docs) at the project root. Defaults are `wiki/` and `sources/`. Accept, or supply different names?"*
+2. Create the folders with:
+   - `wiki/summaries/` (with a `.gitkeep`)
    - `wiki/log.md` using the template in **File templates** below
+   - `sources/` (with a `.gitkeep`) — only create if it doesn't already exist; the user may have a different convention
 3. If `tagging/` (owned by `tag-document`) does not exist either, bootstrap it first by running `tag-document`'s bootstrap procedure. Summaries are tagged via that skill, so its vocabulary files must exist before step 6 of the standing procedure can run.
 
-If `wiki/` already exists, skip bootstrap and go straight to the standing procedure.
+If `wiki/` already exists, skip bootstrap and go straight to the standing procedure. Create `sources/` lazily if a pasted-text or URL source needs to be saved (case 2 or 3 above).
 
 ## Standing procedure (every invocation)
 
