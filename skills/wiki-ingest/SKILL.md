@@ -148,14 +148,9 @@ This skill DOES NOT duplicate tagging logic. When it's time to tag the summary (
 
 `tag-document` enforces vocabulary; this skill enforces the wiki structure. They cooperate.
 
-## Retrieval (handled by tag-document)
+## Retrieval (handled by wiki-query)
 
-Don't re-implement retrieval here. When the user asks a question against the wiki:
-1. Load `tagging/INDEX.md` — it lists both source docs AND summaries (they're all tagged docs).
-2. Filter by `type: summary` if the user wants only summaries, or include both source and summary entries for a richer answer.
-3. Read the candidate docs in full and synthesize.
-
-This is the same retrieval procedure documented in `tag-document/SKILL.md`.
+Don't re-implement retrieval here. When the user asks a question against the wiki or tagged docs, invoke the `wiki-query` skill — it owns the search + synthesis path (load `INDEX.md`, filter by tags/entities/type/status, read only candidates, synthesize with citations).
 
 ## File templates
 

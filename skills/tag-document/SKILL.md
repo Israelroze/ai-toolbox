@@ -93,16 +93,9 @@ Rules:
 - **Tag renames cascade** — when a tag is renamed or merged, update every doc's frontmatter AND `INDEX.md` in the same operation. Never leave the vocabulary and the indexed docs out of sync.
 - **User edits to `TAGS.md` / `ENTITIES.md` are authoritative.** On each invocation, reload from disk. If the user has manually edited the vocabulary, those edits take precedence over anything in conversation context.
 
-## Retrieval procedure
+## Retrieval
 
-When the user asks a question that requires finding documents:
-
-1. **Read `INDEX.md` first.** It's a single small file with the metadata of every tagged doc — cheap to load.
-2. **Filter** by tags / entities / type / status to identify candidate documents.
-3. **Read only the candidate documents** in full.
-4. **Answer** using the retrieved content. If the answer needs cross-doc synthesis, read several candidates; otherwise read one.
-
-Do NOT scan the whole project folder when `INDEX.md` exists — that's what the index is for.
+Retrieval is owned by the `wiki-query` skill, not this one. When the user asks a question against the tagged docs, invoke `wiki-query`. The short version: load `INDEX.md` first, filter by tags/entities/type, read only the candidates, synthesize with citations. See `wiki-query/SKILL.md` for the full procedure.
 
 ## File templates
 
