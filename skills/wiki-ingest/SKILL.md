@@ -5,7 +5,7 @@ description: Summarize a source document and file the summary into a project wik
 
 # wiki-ingest
 
-Ingest a source document into a project's wiki: read it, write a summary, file the summary into `wiki/summaries/`, tag the summary (and optionally the source) using the `tag-document` skill, and append an entry to `wiki/log.md`. The pattern is adapted from Karpathy's LLM wiki concept — see `reference/karpathy-wiki.md` for the full conceptual write-up.
+Ingest a source document into a project's wiki: read it, write a summary, file the summary into `wiki/summaries/`, tag the summary (and optionally the source) using the `tag-document` skill, and append an entry to `wiki/log.md`. The pattern is adapted from Karpathy's LLM wiki concept — see `../wiki/reference/karpathy-wiki.md` for the full conceptual write-up.
 
 This skill is the **wiki ingest operation**. Other Karpathy-pattern operations (lint, entity-page generation) are out of scope here. Retrieval is already handled by `tag-document`'s retrieval procedure.
 
@@ -196,4 +196,4 @@ Empty file. Keeps the directory under version control even when no summaries exi
 
 ## Reference
 
-The conceptual basis for this skill — Karpathy's "LLM Wiki" gist — is bundled at `reference/karpathy-wiki.md`. Read it when designing future wiki operations (lint, entity pages, alternative ingest workflows) to stay aligned with the original pattern.
+The conceptual basis for this skill — Karpathy's "LLM Wiki" gist — is bundled at `../wiki/reference/karpathy-wiki.md` (under the master `wiki` skill, since it informs the whole system, not just this skill). Read it when designing future wiki operations to stay aligned with the original pattern.

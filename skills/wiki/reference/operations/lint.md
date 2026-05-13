@@ -1,13 +1,10 @@
----
-name: wiki-lint
-description: Health-check the project's tagged knowledge system. Detects vocabulary drift, orphan tags, stale INDEX entries, broken source links, duplicate IDs, untagged candidate docs, and inconsistencies between frontmatter and INDEX.md. Invoke when the user says "lint the wiki", "health-check the knowledge base", "audit the tags", "what's broken in the index", or periodically as a maintenance pass. Produces a categorized report; offers interactive fixes but NEVER auto-fixes anything heavier than trivial.
----
+# Operation: lint
 
-# wiki-lint
+> Reference doc for the `wiki` master skill. The agent reaches this file via the routing table in `wiki/SKILL.md` when the user says "lint the wiki", "health-check the knowledge base", "audit the tags", "what's broken in the index", or periodically as a maintenance pass.
 
-Periodic health check for the tagged knowledge system. Surfaces drift, decay, and inconsistencies that accumulate as the system grows. Does **not** auto-fix non-trivial issues — produces a report and offers to route to the appropriate skill for each fix.
+Periodic health check for the tagged knowledge system. Surfaces drift, decay, and inconsistencies that accumulate as the system grows. Does **not** auto-fix non-trivial issues — produces a report and offers to route to the appropriate operation or skill for each fix.
 
-## When to invoke
+## When to apply this operation
 
 - "lint the wiki", "audit the knowledge base", "health-check tagging", "find orphans / dead links"
 - After a long period without maintenance
@@ -61,16 +58,16 @@ For each check, the linter outputs: count, severity (`info` / `warn` / `error`),
 1. **Locate `tagging/`** and `wiki/` (if present). If `tagging/` is absent, nothing to lint.
 2. **Run all checks above.** Build a categorized report.
 3. **Print the report** as a summary table first (counts per severity), then expand by category. Keep it scannable — full lists only on user request for high-count categories.
-4. **Offer fixes** per category. Each fix delegates to the right skill:
-   - Stale INDEX entry, missing INDEX entry, drifted entry → run `wiki-reindex`.
-   - Orphan tag/entity, similar tag names → suggest `tag-rename` (deprecate, rename, or merge).
-   - Unknown tag/entity in doc → suggest the user fix the doc frontmatter (or run `tag-rename` if it's a stale name).
-   - Untagged candidate → suggest `tag-document` for one, `bulk-tag` for many.
+4. **Offer fixes** per category. Each fix delegates to the right operation or skill:
+   - Stale INDEX entry, missing INDEX entry, drifted entry → apply the `reindex` operation.
+   - Orphan tag/entity, similar tag names → suggest the `tag-rename` operation (deprecate, rename, or merge).
+   - Unknown tag/entity in doc → suggest the user fix the doc frontmatter (or apply `tag-rename` if it's a stale name).
+   - Untagged candidate → suggest `tag-document` for one, the `bulk-tag` operation for many.
    - Broken `source_path` → surface for manual fix; can't auto-resolve.
    - Duplicate IDs → require manual resolution (which file should keep the ID?).
 5. **Apply only trivial fixes automatically** if user says "fix what you can":
    - Trivial = adding orphan tags to a "deprecated" section in `TAGS.md` with the user's consent.
-   - NOT trivial = anything modifying doc frontmatter, deleting entries, or running `wiki-reindex`. Always confirm.
+   - NOT trivial = anything modifying doc frontmatter, deleting entries, or applying the `reindex` operation. Always confirm.
 6. **Append to `wiki/log.md`** (if present) — one entry per lint run, regardless of whether fixes were applied:
    ```
    ## [YYYY-MM-DD] lint | 12 issues found (3 error, 4 warn, 5 info)
@@ -105,15 +102,15 @@ Info:
   - 5 untagged candidates: docs/* (5 files with no frontmatter)
 
 Suggested actions:
-  - Run wiki-reindex to fix the 3 INDEX issues.
-  - Run tag-rename to consolidate `agents` / `agent-frameworks`.
-  - Run bulk-tag on docs/* if those should be in the index.
+  - Apply the reindex operation to fix the 3 INDEX issues.
+  - Apply tag-rename to consolidate `agents` / `agent-frameworks`.
+  - Apply bulk-tag on docs/* if those should be in the index.
   - Manually fix unknown tag in notes/bar.md.
 ```
 
-## What this skill does NOT do
+## What this operation does NOT do
 
-- **Auto-fix anything non-trivial.** All meaningful changes go through `tag-rename`, `wiki-reindex`, `tag-document`, or `bulk-tag` with user confirmation.
+- **Auto-fix anything non-trivial.** All meaningful changes go through `tag-rename`, `reindex`, `tag-document`, or `bulk-tag` with user confirmation.
 - **Modify document body content** under any circumstances.
 - **Decide whether orphan tags should be removed.** Surfaces them; the user decides.
 - **Run on a schedule.** Manual invocation only — there's no daemon.

@@ -1,13 +1,17 @@
 ---
 name: wiki
-description: Master skill for the project's tagged knowledge system. Invoke when the user asks for an overview of "the wiki", "the knowledge system", "how this works", or wants to set up / initialize the system from scratch in a fresh project ("set up the knowledge base", "init the wiki", "bootstrap tagging"). This skill describes the architecture, routes the agent to the correct sub-skill for each kind of request (tag, ingest, query, lint, rename, reindex, bulk-tag), and owns the one-shot project bootstrap. Read this first when the agent doesn't know which knowledge-system skill to invoke.
+description: Master skill for the project's tagged knowledge system. Invoke when the user wants an overview of "the wiki" / "the knowledge system" / "how this works", wants to set up / initialize the system from scratch ("set up the knowledge base", "init the wiki", "bootstrap tagging"), OR wants to apply any maintenance operation (rebuild index, rename/merge tags, lint/audit, bulk-tag many docs). This skill owns the architecture overview, the one-shot bootstrap, and four maintenance operations whose procedures live in reference/operations/. Read this first when the agent doesn't know which knowledge-system action to take.
 ---
 
 # wiki (master)
 
-This is the **orchestrator and overview** for a tagged knowledge system that lets a project accumulate knowledge over time: tagged documents, indexed and queryable, with optional LLM-generated summaries. It does NOT do the work itself — it routes to the sub-skill that does.
+This is the **orchestrator and overview** for a tagged knowledge system that lets a project accumulate knowledge over time: tagged documents, indexed and queryable, with optional LLM-generated summaries.
 
-Conceptual basis: Karpathy's "LLM Wiki" pattern (see `../wiki-ingest/reference/karpathy-wiki.md`).
+This skill does two kinds of things:
+1. **Routes** routine requests to the right operational skill (`tag-document`, `wiki-ingest`, `wiki-query`).
+2. **Owns** the system bootstrap and four maintenance operations whose procedures live in `reference/operations/`. When a maintenance request comes in, follow the procedure in the corresponding reference file.
+
+Conceptual basis: Karpathy's "LLM Wiki" pattern — see `reference/karpathy-wiki.md`.
 
 ## The system at a glance
 
@@ -29,20 +33,26 @@ A project using this system has three folders at its root (created on demand, na
 
 Everything tagged — sources, notes, prompts, configs, skills, summaries — appears as a row in `tagging/INDEX.md`. The index is the master catalog the agent consults first for any retrieval question.
 
-## Sub-skill routing (use this as a decision tree)
+## Routing (decision tree)
 
-| User says / wants | Invoke |
-|---|---|
-| "tag this", "label this", "add this to the index", or adds a new doc to the project | `tag-document` |
-| "summarize this", "ingest this source", "add to wiki", "extract notes from this" | `wiki-ingest` (heavy, opt-in only) |
-| "what do I have on X?", "find docs about Y", "compare A vs B from my notes", any retrieval question | `wiki-query` |
-| "rename tag X to Y", "merge tags A and B", "deprecate this tag" | `tag-rename` |
-| "rebuild the index", "regenerate INDEX.md", "the index is out of sync" | `wiki-reindex` |
-| "health-check the wiki", "lint the knowledge base", "find orphan tags / stale entries" | `wiki-lint` |
-| "tag all the docs in folder X", "bulk-tag everything untagged", "retrofit this project" | `bulk-tag` |
-| "set up the wiki", "init the knowledge system", "bootstrap tagging" | **this skill** — proceed below |
+Two kinds of targets: **other skills** (separate, auto-discoverable) and **operations** (procedures in `reference/operations/` that this skill drives).
 
-When a user request is ambiguous, ask which they want before invoking. Never silently chain heavy operations (`wiki-ingest`, `bulk-tag`, `wiki-lint`'s autofix mode).
+| User says / wants | Target | Kind |
+|---|---|---|
+| "tag this", "label this", "add this to the index", or adds a new doc | `tag-document` skill | skill |
+| "summarize this", "ingest this source", "add to wiki", "extract notes" | `wiki-ingest` skill (heavy, opt-in) | skill |
+| "what do I have on X?", "find docs about Y", any retrieval question | `wiki-query` skill | skill |
+| "set up the wiki", "init the knowledge system", "bootstrap tagging" | bootstrap procedure below | **this skill** |
+| "rebuild the index", "regenerate INDEX.md", "the index is out of sync" | `reference/operations/reindex.md` | operation |
+| "rename tag X to Y", "merge tags A and B", "deprecate this tag" | `reference/operations/tag-rename.md` | operation |
+| "health-check the wiki", "lint the knowledge base", "find orphans" | `reference/operations/lint.md` | operation |
+| "tag all docs in folder X", "bulk-tag everything untagged", "retrofit" | `reference/operations/bulk-tag.md` | operation |
+
+**For operations:** read the referenced file and follow its procedure exactly. The reference files are self-contained — they cover when to apply, the full procedure, edge cases, and safety rules.
+
+**For skills:** the agent invokes the named skill directly; its own SKILL.md takes over.
+
+When a user request is ambiguous, ask which they want before proceeding. Never silently chain heavy operations (`wiki-ingest`, `bulk-tag`, `lint`'s autofix mode).
 
 ## Bootstrap procedure (init the whole system in one shot)
 
@@ -71,9 +81,10 @@ Invoke when the user wants to set the system up from scratch in a project. Faste
 - **Sources are immutable from the LLM's POV.** `wiki/` is LLM-owned; `sources/` and the user's project files are not.
 - **Summaries are first-class docs.** They have frontmatter and appear in `INDEX.md` like everything else.
 - **Each project has its own scoped vocabulary.** No cross-project tag leakage.
-- **Heavy operations are opt-in.** `wiki-ingest`, `bulk-tag`, and `wiki-lint`'s autofix never trigger automatically.
+- **Heavy operations are opt-in.** `wiki-ingest`, the `bulk-tag` operation, and the `lint` operation's autofix mode never trigger automatically.
 
 ## What this skill does NOT do
 
-- Tag, summarize, query, lint, rename, rebuild, or bulk-tag. Those are sub-skills. This skill only **routes** and **bootstraps**.
-- Modify existing state beyond the bootstrap. If folders already exist, this skill leaves them alone.
+- **Tag, summarize, or query** individual docs. Those are separate skills (`tag-document`, `wiki-ingest`, `wiki-query`).
+- **Modify existing state beyond the bootstrap** unless the user explicitly invoked a maintenance operation. If folders already exist, leave them alone.
+- **Replace any sub-skill.** When a routine request matches a separate skill in the table above, that skill takes over directly — this skill stays out of the way.

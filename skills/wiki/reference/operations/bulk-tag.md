@@ -1,23 +1,20 @@
----
-name: bulk-tag
-description: Tag many existing documents in one batch operation, used to retrofit the tagging system onto a project that already has untagged markdown files. Invoke when the user says "tag everything in folder X", "bulk-tag the notes/ folder", "retrofit this project", "tag all untagged docs", or "add the existing files to the index". Batches new-tag proposals so the user doesn't get bombarded with approval prompts one-by-one — collects suggestions first, then asks for batch approval, then tags in chunks. Heavy operation, opt-in only.
----
+# Operation: bulk-tag
 
-# bulk-tag
+> Reference doc for the `wiki` master skill. The agent reaches this file via the routing table in `wiki/SKILL.md` when the user says "tag everything in folder X", "bulk-tag the notes/ folder", "retrofit this project", "tag all untagged docs", or "add the existing files to the index".
 
 Apply the `tag-document` procedure to many files in one batch, with smart batching of the approval flow so the user isn't asked about new tags one doc at a time. Used to retrofit an existing project (50, 200, 1000 docs) into the tagging system.
 
-## When to invoke
+## When to apply this operation
 
 - "bulk-tag everything in `notes/`"
 - "tag all untagged markdown in this project"
 - "retrofit this project into the wiki"
 - "I have 80 files I need indexed — do them all"
-- After `wiki-lint` flags many untagged candidates and the user wants to fix them all
+- After the `lint` operation flags many untagged candidates and the user wants to fix them all
 
-Do NOT invoke when:
+Do NOT apply when:
 - The user has just one or a small handful of docs — that's `tag-document`.
-- The user wants only to summarize many docs — there's no bulk-summarize skill yet (and it would be very heavy; build it only on explicit request).
+- The user wants only to summarize many docs — there's no bulk-summarize operation yet (and it would be very heavy; build it only on explicit request).
 
 ## Procedure
 
@@ -62,7 +59,7 @@ Do NOT invoke when:
     - Write frontmatter to each doc, preserving any pre-existing fields.
     - Update `INDEX.md` with the new entries (append; final reindex at end will sort/clean).
     - Show progress: *"Tagged 10/73. Continuing..."*
-11. **After all chunks done, run `wiki-reindex`** to ensure `INDEX.md` is clean (sorted, grouped, no duplicates).
+11. **After all chunks done, apply the `reindex` operation** to ensure `INDEX.md` is clean (sorted, grouped, no duplicates).
 12. **Append to `wiki/log.md`** (if present):
     ```
     ## [YYYY-MM-DD] bulk-tag | 73 docs across notes/, docs/, scratch/
@@ -95,7 +92,7 @@ This converts O(N) prompts into O(1) — the user reviews the proposed vocabular
 - **Never overwrite existing frontmatter fields.** Merge only — fill in what's missing, leave the rest.
 - **Show a sample, not the full list, in early prompts** (Phase 1). Full lists only on user request.
 
-## What this skill does NOT do
+## What this operation does NOT do
 
 - **Summarize docs.** Tagging only. Summarization is `wiki-ingest`, one source at a time, by explicit request.
 - **Modify document body content.**

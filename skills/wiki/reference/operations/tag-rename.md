@@ -1,13 +1,10 @@
----
-name: tag-rename
-description: Rename a tag or entity across the entire project — updates TAGS.md / ENTITIES.md, every document's frontmatter, and INDEX.md in a single cascade. Also handles merges (multiple old tags into one new tag) and deprecation. Invoke when the user says "rename tag X to Y", "merge tags A and B into C", "this tag should be called Z instead", or wants to consolidate the vocabulary. Always shows the change set for confirmation before writing.
----
+# Operation: tag-rename
 
-# tag-rename
+> Reference doc for the `wiki` master skill. The agent reaches this file via the routing table in `wiki/SKILL.md` when the user says "rename tag X to Y", "merge tags A and B into C", "this tag should be called Z instead", or wants to consolidate vocabulary.
 
 Rename or merge tags/entities across the project, cascading the change through the vocabulary file, every affected document's frontmatter, and `INDEX.md`. This is the one operation that bypasses the "tags are append-only" default in `tag-document`.
 
-## When to invoke
+## When to apply this operation
 
 - "rename tag `rag` to `retrieval-augmented-generation`"
 - "merge tags `agents` and `agent-frameworks` into `agents`"
@@ -15,9 +12,9 @@ Rename or merge tags/entities across the project, cascading the change through t
 - "this entity has the wrong name — fix it"
 - "consolidate these similar tags"
 
-Do NOT invoke when:
+Do NOT apply when:
 - The user wants to ADD a tag — that's `tag-document`'s approval flow.
-- The user wants to remove an unused tag with no docs using it — that's also fine here (counts as deprecation), but `wiki-lint` will surface and offer the same.
+- The user wants to remove an unused tag with no docs using it — that's also fine here (counts as deprecation), but the `lint` operation will surface and offer the same.
 
 ## Operations supported
 
@@ -53,7 +50,7 @@ Works identically for entities (`ENTITIES.md`).
 7. **On approval, apply atomically** (sequence — if any step fails, roll back the earlier ones):
    1. Read each affected doc, rewrite its frontmatter with the new tag value. Preserve all other frontmatter fields exactly.
    2. Update `TAGS.md`: remove the old entry (rename / deprecate) or remove all old entries being merged.
-   3. Update `INDEX.md` to reflect the new tags. (Or invoke `wiki-reindex` if many entries are affected — cleaner than ad-hoc editing.)
+   3. Update `INDEX.md` to reflect the new tags. (Or apply the `reindex` operation if many entries are affected — cleaner than ad-hoc editing.)
    4. Append to `wiki/log.md` (if present):
       ```
       ## [YYYY-MM-DD] tag-rename | rag → retrieval-augmented-generation
@@ -70,7 +67,7 @@ Works identically for entities (`ENTITIES.md`).
 
 - **No docs use the old tag.** Allowed — just remove from `TAGS.md` and confirm with user.
 - **The new tag and old tag are identical.** No-op; tell user.
-- **A doc uses the old tag but is missing from `INDEX.md`.** Surface this — the index is desynced. Suggest running `wiki-reindex` before the rename.
+- **A doc uses the old tag but is missing from `INDEX.md`.** Surface this — the index is desynced. Suggest applying the `reindex` operation before the rename.
 - **The user wants to KEEP the old tag as an alias.** Add an "Aliases" note to the new tag's `TAGS.md` entry rather than removing the old one; mention this is unusual.
 
 ## Atomicity & safety
@@ -80,8 +77,8 @@ This operation touches many files. Two safety rules:
 1. **Always show the full change set before writing.** Never apply without explicit confirmation, even for small operations.
 2. **Prefer one git commit per rename.** After the operation completes, suggest the user commit immediately so the cascade is captured as a single atomic change in version control. Recovery from a partial mistake is then trivial.
 
-## What this skill does NOT do
+## What this operation does NOT do
 
 - **Add new tags** (other than the target of a merge that didn't exist yet — and even then, only via the standard approval flow).
 - **Modify document content** outside the frontmatter `tags` / `entities` arrays.
-- **Rename tag definitions in summary body text.** If a doc body mentions a tag by name in prose, this skill won't catch it. Surface this as a known limitation when the user runs the operation.
+- **Rename tag definitions in summary body text.** If a doc body mentions a tag by name in prose, this operation won't catch it. Surface this as a known limitation when the user runs the operation.
